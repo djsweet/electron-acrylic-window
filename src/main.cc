@@ -72,7 +72,6 @@ void setVibrancy(const Napi::CallbackInfo &info) {
                 Napi::Error::New(env, "FAIL_LOAD_DLL").ThrowAsJavaScriptException();
                 return;
             }
-            FreeLibrary(hModule);
         } else {
             Napi::Error::New(env, "FAIL_LOAD_DLL").ThrowAsJavaScriptException();
             return;
@@ -109,7 +108,6 @@ void disableVibrancy(const Napi::CallbackInfo &info) {
                 Napi::Error::New(env, "FAIL_LOAD_DLL").ThrowAsJavaScriptException();
                 return;
             }
-            FreeLibrary(hModule);
         } else {
             Napi::Error::New(env, "FAIL_LOAD_DLL").ThrowAsJavaScriptException();
             return;
