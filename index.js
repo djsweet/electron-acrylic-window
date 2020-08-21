@@ -46,10 +46,15 @@ function hrtimeDeltaForFrequency(freq) {
     return BigInt(Math.ceil(billion / freq));
 }
 
+function findDesiredPosition(position, positionList) {
+    return positionList.find(op => areBoundsEqual(position, op));
+}
+
 class vBrowserWindow extends eBrowserWindow {
     constructor(props) {
         props.backgroundColor = '#00000000';
         props.show = false;
+        const desiredPositions = [];
         const win = new eBrowserWindow(props);
         // Unfortunately, we have to re-implement moving and resizing.
         // Enabling vibrancy slows down the window's event handling loop to the
@@ -79,6 +84,20 @@ class vBrowserWindow extends eBrowserWindow {
         function getRefreshRateAtCursor(cursor) {
             cursor = cursor || screen.getCursorScreenPoint();
             return refreshCtx.findVerticalRefreshRateForDisplayPoint(cursor.x, cursor.y);
+        }
+
+        // Electron has a bad bug where it wants to ignore the very last will-move
+        // boundary set and revert to a slightly earlier one. We correct for this
+        // in the "move" event, but this correction is incompatible with Aero Snap.
+        // So to work around _that_, we're keeping a small record of the positions
+        // we wanted to set. If the bounds we have at the end of the move aren't
+        // at all what we said we wanted in the past, we just defer to what they are.
+        function recordDesiredPosition(nextDesiredPosition) {
+            if (findDesiredPosition(nextDesiredPosition, desiredPositions)) return;
+            if (desiredPositions.length >= 5) {
+                desiredPositions.shift();
+            }
+            desiredPositions.push(nextDesiredPosition);
         }
 
         vBrowserWindow._bindAndReplace(win, vBrowserWindow.setVibrancy);
@@ -119,6 +138,7 @@ class vBrowserWindow extends eBrowserWindow {
             }
             win.setBounds(bounds);
             desiredMoveBounds = win.getBounds();
+            recordDesiredPosition(desiredMoveBounds);
         }
 
         function currentTimeBeforeNextActivityWindow(lastTime, forceFreq) {
@@ -207,6 +227,9 @@ class vBrowserWindow extends eBrowserWindow {
                 e.preventDefault();
                 return false;
             }
+            // The bounds we have now aren't in the bounds we ever requested.
+            // Something else managed this move, so we need to respect it.
+            if (!findDesiredPosition(win.getBounds(), desiredPositions)) return;
             // As insane as this sounds, Electron sometimes reacts to prior
             // move events out of order. Specifically, if you have win.setBounds()
             // twice, then for some reason, when you exit the move state, the second
